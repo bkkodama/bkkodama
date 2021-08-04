@@ -1,0 +1,51 @@
+/**
+ * Definition for a binary tree node.
+ * struct TreeNode {
+ *     int val;
+ *     TreeNode *left;
+ *     TreeNode *right;
+ *     TreeNode() : val(0), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+ *     TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+ * };
+ */
+
+Time: O(N^2); O(N) for traversing each node, but up to O(N^2) for copying paths
+Space: O(H); the length of stack and/or the path will be at most the height of the tree
+
+class Solution {
+public:
+    vector<vector<int>> ans;
+    
+    vector<vector<int>> pathSum(TreeNode* root, int targetSum) {
+        vector<int> path;
+        
+        dfs(root, targetSum, path);
+        
+        return ans;
+    }
+    
+    void dfs(TreeNode* curr, int target, vector<int>& path) //use path by reference to keep track of the path
+    {
+        if(curr == NULL)
+        {
+            return;
+        }
+        
+        path.push_back(curr->val);
+        target -= curr->val;
+        
+        if(curr->left == NULL && curr->right == NULL) //if curr is a leaf
+        {
+            if(target == 0) //if target is reached
+            {
+                ans.push_back(path);
+            }
+        } else {
+            dfs(curr->left, target, path);
+            dfs(curr->right, target, path);
+        }
+        
+        path.pop_back(); //if curr is a leaf or both children have returned, remove the current node
+    }
+};
