@@ -1,0 +1,32 @@
+Time: O(N); traverse each int in array once
+Space: O(N); map stores at most N - 1 pairs
+
+class Solution {
+public:
+    vector<int> twoSum(vector<int>& nums, int target) {
+        vector<int> ans;
+        int comp;
+        
+        unordered_map<int,int> map;
+        unordered_map<int,int>::iterator itr;
+        
+        for(int i = 0; i < nums.size(); i++)
+        {
+            
+            comp = target - nums[i];
+            
+            itr = map.find(comp);
+            
+            if(itr != map.end())
+            {
+                ans.push_back(i);
+                ans.push_back(itr->second);
+                break;
+            }
+                
+            map[nums[i]] = i;
+        }
+        
+        return ans;
+    }
+};
