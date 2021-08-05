@@ -1,0 +1,71 @@
+Time: O(N); loop through paragraph twice
+Space: O(N); worst case each word is unique and stored in map
+
+class Solution {
+public:
+    string mostCommonWord(string paragraph, vector<string>& banned) {
+        unordered_map<string, int> wordcount;
+        unordered_set<string> bans;
+        
+        unordered_map<string, int>::iterator itwc;
+        
+        for(int i = 0; i < banned.size(); i++)
+        {
+            bans.insert(banned[i]);
+        }
+        
+        string paragraph2 = paragraph;
+        
+        for(int i = 0; i < paragraph.size(); i++) //loop through paragraph
+        {
+            char curr = paragraph2[i];
+            
+            if(isalpha(curr)) //if alphabetic
+            {
+                curr = tolower(curr); //convert letters to lower case
+                paragraph2[i] = curr;
+            } else {
+                paragraph2[i] = ' '; //converts punctuation to spaces
+            }
+        }
+        
+        int index = 0;
+        
+        while(index < paragraph2.size()) //loop through paragraph
+        {
+            int end;
+            if(paragraph2.find(" ", index) != string::npos) //finds next space between words
+            {
+                end = paragraph2.find(" ", index); 
+            } else {
+                end = paragraph2.size(); //base case for if the last word ends the paragraph
+            }
+            
+            int len = end - index;
+            
+            string curr = paragraph2.substr(index, len); //creates word from paragraph
+            
+            if(bans.count(curr) == 0)
+            {
+                if(curr.size() > 0)
+                    ++wordcount[curr]; //saves word in hashmap and increases its count;
+            }
+            
+            index = end + 1; 
+        }
+        
+        int count = 0;
+        string ans;
+        
+        for(itwc = wordcount.begin(); itwc != wordcount.end(); itwc++) //loop to find word with highest count
+        {
+            if(itwc->second > count)
+            {
+                count = itwc->second;
+                ans = itwc->first;
+            }
+        }
+        
+        return ans;
+    }
+};
