@@ -1,0 +1,136 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class Pawn : Piece
+{
+    public bool enPassent = false;
+    public Piece EPtarget = null;
+    public Tile EPtile = null;
+
+    public override void Setup(Color nColor, PieceManager pm, Color32 sColor)
+    {
+        base.Setup(nColor, pm, sColor);
+
+        firstMove = true;
+        enPassent = false;
+
+        //Pawn direction depends on pawn team
+        movement = (pieceColor == Color.white) ? new Vector3Int(0, 1, 1) : new Vector3Int(0, -1, -1);
+        GetComponent<Image>().sprite = Resources.Load<Sprite>("pawn");
+        rank = PieceRank.PAWN;
+    }
+
+    protected override void Move()
+    {
+        base.Move();
+
+        if(firstMove)
+        {
+            firstMove = false;
+            enPassent = true; 
+        }
+
+        CheckPromotion();
+
+        //Check if enPassent move was made
+        if(EPtarget != null)
+        {
+            if (currentTile == EPtile)
+            {
+                //Kills enPassent'd pawn since the normal move function will not
+                EPtarget.KillPiece();
+                EPtarget = null;
+                EPtile = null;
+            }
+        }
+    }
+
+    private bool MatchesState(int targetX, int targetY, TileState target)
+    {
+        TileState targetTile = currentTile.board.ValidateTile(targetX, targetY, this);
+
+        if(target == targetTile)
+        {
+            highlighted.Add(currentTile.board.tileGrid[targetX, targetY]);
+            return true;
+        }
+
+        return false;
+    }
+
+    protected override void CheckPath()
+    {
+        int currX = currentTile.pos.x;
+        int currY = currentTile.pos.y;
+
+        //Check diagonals for attacks
+        MatchesState(currX - movement.z, currY + movement.y, TileState.Enemy);
+        MatchesState(currX + movement.z, currY + movement.y, TileState.Enemy);
+
+        //Check ahead for free movement
+        if(MatchesState(currX, currY + movement.y, TileState.Empty))
+        {
+            if(firstMove)
+            {
+                MatchesState(currX, currY + (movement.y * 2), TileState.Empty);
+            }
+        }
+
+        //Check for enPassent
+        if (currY == 3 || currY == 4) //enPassent can only occur on these ranks
+        {
+            if (currX > 0)
+            {
+                //Check adjacent tile for pawn
+                if (currentTile.board.tileGrid[currX - 1, currY].currentPiece != null)
+                {
+                    if (currentTile.board.tileGrid[currX - 1, currY].currentPiece.rank == PieceRank.PAWN)
+                    {
+                        Pawn target = (Pawn)currentTile.board.tileGrid[currX - 1, currY].currentPiece;
+
+                        EPtarget = target;
+
+                        //Check pawn if it moved last turn
+                        if (target.enPassent)
+                        {
+                            MatchesState(currX - 1, currY + movement.y, TileState.Empty);
+                            EPtile = currentTile.board.tileGrid[currX - 1, currY + movement.y];
+                        }
+                    }
+                }
+            }
+
+            //Repeat for other side
+            if (currX < 7)
+            {
+                if (currentTile.board.tileGrid[currX + 1, currY].currentPiece != null)
+                {
+                    if (currentTile.board.tileGrid[currX + 1, currY].currentPiece.rank == PieceRank.PAWN)
+                    {
+                        Pawn target = (Pawn)currentTile.board.tileGrid[currX + 1, currY].currentPiece;
+
+                        EPtarget = target;
+
+                        if (target.enPassent)
+                        {
+                            MatchesState(currX + 1, currY + movement.y, TileState.Empty);
+                            EPtile = currentTile.board.tileGrid[currX + 1, currY + movement.y];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private void CheckPromotion()
+    {
+        int currY = currentTile.pos.y;
+
+        if(currY == 0 || currY == 7)
+        {
+            PM.PromotePiece(this, currentTile);
+        }
+    }
+}
