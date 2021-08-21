@@ -1,0 +1,441 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using System;
+
+public enum PieceRank
+{
+    PAWN,
+    BISHOP,
+    KNIGHT,
+    ROOK,
+    QUEEN,
+    KING
+}
+
+public class PieceManager : MonoBehaviour
+{
+    public GameObject piecePF;
+    public Board board;
+    public bool isKingsAlive = true;
+
+    public List<Piece> whitePiece = null;
+    public List<Piece> blackPiece = null;
+    private List<Piece> promotedPiece = new List<Piece>();
+    public King wKing = null;
+    public King bKing = null;
+
+    public Color32 whiteColor = new Color32(250, 90, 90, 255);
+    public Color32 blackColor = new Color32(85, 130, 250, 255);
+
+    public List<Vector2Int> knightMoves = new List<Vector2Int>()
+    {
+        new Vector2Int(2, 1),
+        new Vector2Int(2, -1),
+        new Vector2Int(-2, 1),
+        new Vector2Int(-2, -1),
+        new Vector2Int(1, 2),
+        new Vector2Int(1, -2),
+        new Vector2Int(-1, 2),
+        new Vector2Int(-1, -2)
+    };
+
+    private string[] pieceOrder = new string[16]
+    {
+        "P", "P", "P", "P", "P", "P", "P", "P",
+        "R", "N", "B", "Q", "K", "B", "N", "R"
+    };
+
+    private Dictionary<string, Type> pieceLibrary = new Dictionary<string, Type>()
+    {
+        {"P", typeof(Pawn)},
+        {"N", typeof(Knight)},
+        {"B", typeof(Bishop)},
+        {"R", typeof(Rook)},
+        {"Q", typeof(Queen)},
+        {"K", typeof(King)}
+    };
+
+    public void Setup(Board board)
+    {
+        whitePiece = CreatePieces(Color.white, board, whiteColor);
+        blackPiece = CreatePieces(Color.black, board, blackColor);
+
+        PlacePieces(1, 0, whitePiece, board);
+        PlacePieces(6, 7, blackPiece, board);
+
+        SwitchSides(Color.black);
+    }
+
+    private List<Piece> CreatePieces(Color team, Board board, Color32 pcolor)
+    {
+        List<Piece> nPiece = new List<Piece>();
+
+        for(int i = 0; i < pieceOrder.Length; i++)
+        {
+            string key = pieceOrder[i];
+            Type pieceType = pieceLibrary[key];
+
+            Piece newPiece = SpawnPiece(pieceType);
+            nPiece.Add(newPiece);
+
+            newPiece.Setup(team, this, pcolor);
+        }
+
+        return nPiece;
+    }
+
+    private Piece SpawnPiece(Type pType)
+    {
+        GameObject tempPiece = Instantiate(piecePF);
+        tempPiece.transform.SetParent(transform);
+
+        tempPiece.transform.localScale = new Vector3(1, 1, 1);
+        tempPiece.transform.localRotation = Quaternion.identity;
+
+        Piece nPiece = (Piece)tempPiece.AddComponent(pType);
+        return nPiece;
+    }
+
+    private void PlacePieces(int pawnrow, int piecerow, List<Piece> pieces, Board board)
+    {
+        for(int i = 0; i < 8; i++)
+        {
+            pieces[i].Place(board.tileGrid[i, pawnrow]);
+            pieces[i + 8].Place(board.tileGrid[i, piecerow]);
+        }
+    }
+
+    private void SetInteractive(List<Piece> pieces, bool value)
+    {
+        foreach(Piece p in pieces)
+        {
+            p.enabled = value;
+        }
+    }
+
+    public void SwitchSides(Color color)
+    {
+        //If game is over, reset the game
+        if(!isKingsAlive)
+        {
+            ResetPieces();
+            isKingsAlive = true;
+            color = Color.black;
+        }
+
+        //Check who made the last move, and switch sides
+        bool whiteNext = color == Color.black ? true : false;
+
+        SetInteractive(whitePiece, whiteNext);
+        SetInteractive(blackPiece, !whiteNext);
+
+        //Reset enPassent
+        if(whiteNext)
+        {
+            foreach(Piece p in whitePiece)
+            {
+                if(p.rank == PieceRank.PAWN)
+                {
+                    Pawn temp = (Pawn)p;
+                    temp.enPassent = false;
+                }
+            }
+        }
+        else
+        {
+            foreach(Piece p in blackPiece)
+            {
+                if (p.rank == PieceRank.PAWN)
+                {
+                    Pawn temp = (Pawn)p;
+                    temp.enPassent = false;
+                }
+            }
+        }
+
+        //Promoted pieces
+        foreach(Piece p in promotedPiece)
+        {
+            bool isWhite = (p.pieceColor == Color.white) ? true : false;
+            bool nextMove = (isWhite == whiteNext) ? true : false;
+
+            p.enabled = nextMove;
+        }
+    }
+
+    public void ResetPieces()
+    {
+        foreach(Piece p in whitePiece)
+        {
+            p.ResetPiece();
+        }
+
+        foreach(Piece p in blackPiece)
+        {
+            p.ResetPiece();
+        }
+
+        foreach(Piece p in promotedPiece)
+        {
+            p.KillPiece();
+
+            Destroy(p.gameObject);
+        }
+    }
+
+    public void PromotePiece(Pawn p, Tile t)
+    {
+        Color team = p.pieceColor;
+        Color32 sColor = (team == Color.white) ? whiteColor : blackColor;
+
+        //Kill pawn
+        p.KillPiece();
+
+        //Spawn promotion
+        Piece promotedP = SpawnPiece(typeof(Queen));
+        promotedP.Setup(team, this, sColor);
+        promotedP.Place(t);
+
+        promotedPiece.Add(promotedP);
+    }
+
+    public bool ValidMove(Color team)
+    {
+        List<Piece> pieces;
+
+        if(team == Color.black)
+        {
+            pieces = whitePiece;
+        } 
+        else
+        {
+            pieces = blackPiece;
+        }
+
+        foreach(Piece p in pieces)
+        {
+            PieceRank pr = p.rank;
+
+            if(pr == PieceRank.BISHOP || pr == PieceRank.QUEEN)
+            {
+                //check diagonal
+                if(!ValidDiagonal(p, 1, 1) || !ValidDiagonal(p, 1, -1) || !ValidDiagonal(p, -1, 1) || !ValidDiagonal(p,-1,-1))
+                {
+                    return false;
+                }
+            }
+
+            if(pr == PieceRank.ROOK || pr == PieceRank.QUEEN)
+            {
+                //check horizontal
+                if(!ValidHoriz(p) || !ValidVert(p))
+                {
+                    return false;
+                }
+            }
+
+            if(pr == PieceRank.KNIGHT)
+            {
+                //check knight
+                if(!ValidKnight(p))
+                {
+                    return false;
+                }
+            }
+
+            if(pr == PieceRank.PAWN)
+            {
+                //check pawn
+                if(!ValidPawn(p))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public bool ValidHoriz(Piece p)
+    {
+        int cx = p.currentTile.pos.x;
+        int cy = p.currentTile.pos.y;
+
+        for (int i = 1; i < 8; i++)
+        {
+            int tx = cx + i;
+
+            TileState target = board.ValidateTile(tx, cy, p);
+
+            if(target == TileState.Enemy)
+            {
+                if(board.tileGrid[tx,cy].currentPiece.rank == PieceRank.KING)
+                {
+                    return false;
+                }
+                break;
+            }
+
+            if (target != TileState.Empty)
+                break;
+        }
+
+        for (int i = 1; i < 8; i++)
+        {
+            int tx = cx - i;
+
+            TileState target = board.ValidateTile(tx, cy, p);
+
+            if (target == TileState.Enemy)
+            {
+                if (board.tileGrid[tx, cy].currentPiece.rank == PieceRank.KING)
+                {
+                    return false;
+                }
+                break;
+            }
+
+            if (target != TileState.Empty)
+                break;
+        }
+
+        return true;
+    }
+
+    public bool ValidVert(Piece p)
+    {
+        int cx = p.currentTile.pos.x;
+        int cy = p.currentTile.pos.y;
+
+        for (int i = 1; i < 8; i++)
+        {
+            int ty = cy + i;
+
+            TileState target = board.ValidateTile(cx, ty, p);
+
+            if (target == TileState.Enemy)
+            {
+                if (board.tileGrid[cx, ty].currentPiece.rank == PieceRank.KING)
+                {
+                    return false;
+                }
+                break;
+            }
+
+            if (target != TileState.Empty)
+                break;
+        }
+
+        for (int i = 1; i < 8; i++)
+        {
+            int ty = cy - i;
+
+            TileState target = board.ValidateTile(cx, ty, p);
+
+            if (target == TileState.Enemy)
+            {
+                if (board.tileGrid[cx, ty].currentPiece.rank == PieceRank.KING)
+                {
+                    return false;
+                }
+                break;
+            }
+
+            if (target != TileState.Empty)
+                break;
+        }
+
+        return true;
+    }
+
+    public bool ValidDiagonal(Piece p, int xd, int yd)
+    {
+        int cx = p.currentTile.pos.x;
+        int cy = p.currentTile.pos.y;
+
+        for (int i = 1; i < 8; i++)
+        {
+            int tx = cx + (i * xd);
+            int ty = cy + (i * yd);
+
+            TileState target = board.ValidateTile(tx, ty, p);
+
+            if (target == TileState.Enemy)
+            {
+                if (board.tileGrid[tx, ty].currentPiece.rank == PieceRank.KING)
+                {
+                    return false;
+                }
+                break;
+            }
+
+            if (target != TileState.Empty)
+                break;
+        }
+
+        return true;
+    }
+
+    public bool ValidKnight(Piece p)
+    {
+        int cx = p.currentTile.pos.x;
+        int cy = p.currentTile.pos.y;
+
+        int tx, ty;
+
+        foreach(Vector2Int v in knightMoves)
+        {
+            tx = cx + v.x;
+            ty = cy + v.y;
+
+            TileState target = board.ValidateTile(tx, ty, p);
+
+            if (target == TileState.Enemy)
+            {
+                if (board.tileGrid[tx, ty].currentPiece.rank == PieceRank.KING)
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    public bool ValidPawn(Piece p)
+    {
+        int cx = p.currentTile.pos.x;
+        int cy = p.currentTile.pos.y;
+
+        int tx, ty;
+        int ydelta = (p.pieceColor == Color.white) ? 1 : -1;
+
+        tx = cx + 1;
+        ty = cy + ydelta;
+
+        TileState target = board.ValidateTile(tx, ty, p);
+
+        if (target == TileState.Enemy)
+        {
+            if (board.tileGrid[tx, ty].currentPiece.rank == PieceRank.KING)
+            {
+                return false;
+            }
+        }
+
+        tx = cx - 1;
+
+        target = board.ValidateTile(tx, ty, p);
+
+        if (target == TileState.Enemy)
+        {
+            if (board.tileGrid[tx, ty].currentPiece.rank == PieceRank.KING)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
