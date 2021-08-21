@@ -1,0 +1,54 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class Rook : Piece
+{
+    public Tile castleTrigger = null;
+    private Tile castleDest = null;
+    public override void Setup(Color nColor, PieceManager pm, Color32 sColor)
+    {
+        base.Setup(nColor, pm, sColor);
+
+        firstMove = true;
+        movement = new Vector3Int(7, 7, 0);
+        GetComponent<Image>().sprite = Resources.Load<Sprite>("rook");
+        rank = PieceRank.ROOK;
+    }
+
+    public override void Place(Tile nTile)
+    {
+        base.Place(nTile);
+
+        int offset = currentTile.pos.x < 4 ? 2 : -1;
+        int destOffset = currentTile.pos.x < 4 ? 3 : -2;
+
+        castleTrigger = SetTile(offset);
+        castleDest = SetTile(destOffset);
+    }
+
+    public void Castle()
+    {
+        targetTile = castleDest;
+
+        Move();
+    }
+
+    private Tile SetTile(int offset)
+    {
+        Vector2Int nPos = currentTile.pos;
+        nPos.x += offset;
+
+        return currentTile.board.tileGrid[nPos.x, nPos.y];
+    }
+    protected override void Move()
+    {
+        base.Move();
+
+        if (firstMove)
+        {
+            firstMove = false;
+        }
+    }
+}
