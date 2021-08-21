@@ -1,0 +1,29 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class Tile : MonoBehaviour
+{
+    public Image outline;
+    public Vector2Int pos;
+    public Board board;
+    public RectTransform rt;
+
+    public Piece currentPiece = null;
+
+    public void Setup(Vector2Int nPos, Board nBoard)
+    {
+        pos = nPos;
+        board = nBoard;
+        rt = GetComponent<RectTransform>();
+    }
+
+    public void RemovePiece()
+    {
+        if(currentPiece != null)
+        {
+            currentPiece.KillPiece();
+        }
+    }
+}
