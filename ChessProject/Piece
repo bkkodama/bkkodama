@@ -1,0 +1,182 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+
+public class Piece : EventTrigger
+{
+    public Color pieceColor = Color.clear;
+    public Tile origin = null;
+    public Tile currentTile = null;
+    public PieceRank rank;
+    public bool firstMove = false;
+
+    public RectTransform rt = null;
+    public PieceManager PM;
+
+    protected Vector3Int movement = Vector3Int.one;
+    protected List<Tile> highlighted = new List<Tile>();
+    protected Tile targetTile = null;
+
+    public virtual void Setup(Color nColor, PieceManager pm, Color32 sColor)
+    {
+        PM = pm;
+
+        pieceColor = nColor;
+        GetComponent<Image>().color = sColor;
+        rt = GetComponent<RectTransform>();
+        firstMove = true;
+    }
+
+    public virtual void Place(Tile nTile)
+    {
+        origin = nTile;
+        currentTile = nTile;
+        currentTile.currentPiece = this;
+
+        transform.position = currentTile.transform.position;
+        gameObject.SetActive(true);
+    }
+
+    public virtual void ResetPiece()
+    {
+        KillPiece();
+
+        Place(origin);
+
+        firstMove = true;
+    }
+
+    public virtual void KillPiece()
+    {
+        currentTile.currentPiece = null;
+        gameObject.SetActive(false);
+    }
+
+    protected virtual void Move()
+    {
+        targetTile.RemovePiece();
+
+        currentTile.currentPiece = null;
+        currentTile = targetTile;
+        currentTile.currentPiece = this;
+
+        transform.position = currentTile.transform.position;
+
+        if(firstMove)
+        {
+            firstMove = false;
+        }
+    }
+
+    private void CreatePath(int xDir, int yDir, int range)
+    {
+        int currX = currentTile.pos.x;
+        int currY = currentTile.pos.y;
+
+        for(int i = 1; i <= range; i++)
+        {
+            currX += xDir;
+            currY += yDir;
+
+            TileState targetState = currentTile.board.ValidateTile(currX, currY, this);
+
+            //Check target tile for enemy or allied pieces
+            if(targetState == TileState.Enemy)
+            {
+                highlighted.Add(currentTile.board.tileGrid[currX, currY]);
+                break;
+            }
+
+            if(targetState != TileState.Empty)
+            {
+                break;
+            }
+
+            highlighted.Add(currentTile.board.tileGrid[currX, currY]);
+        }
+    }
+
+    protected virtual void CheckPath()
+    {
+        //Will be modified in inherited piece classes
+        CreatePath(1, 0, movement.x);
+        CreatePath(-1, 0, movement.x);
+
+        CreatePath(0, 1, movement.y);
+        CreatePath(0, -1, movement.y);
+
+        CreatePath(1, 1, movement.z);
+        CreatePath(1, -1, movement.z);
+        CreatePath(-1, 1, movement.z);
+        CreatePath(-1, -1, movement.z);
+    }
+
+    protected void ShowHighlight()
+    {
+        foreach(Tile t in highlighted)
+        {
+            t.outline.enabled = true;
+        }
+    }
+
+    protected void ClearHighlight()
+    {
+        foreach (Tile t in highlighted)
+        {
+            t.outline.enabled = false;
+        }
+
+        highlighted.Clear();
+    }
+
+    public override void OnBeginDrag(PointerEventData eventData)
+    {
+        base.OnBeginDrag(eventData);
+
+        CheckPath();
+        ShowHighlight();
+    }
+
+    public override void OnDrag(PointerEventData eventData)
+    {
+        base.OnDrag(eventData);
+        transform.position += (Vector3)eventData.delta;
+
+        foreach(Tile t in highlighted)
+        {
+            if(RectTransformUtility.RectangleContainsScreenPoint(t.rt, Input.mousePosition))
+            {
+                targetTile = t;
+                break;
+            }
+
+            targetTile = null;
+        }
+    }
+
+    public override void OnEndDrag(PointerEventData eventData)
+    {
+        base.OnEndDrag(eventData);
+
+        ClearHighlight();
+
+        if(!targetTile || targetTile == currentTile)
+        {
+            transform.position = currentTile.transform.position;
+            return;
+        }
+
+        //Validate move
+        if(!PM.ValidMove(pieceColor))
+        {
+            transform.position = currentTile.transform.position;
+            return;
+        }
+
+        Move();
+
+        PM.SwitchSides(this.pieceColor);
+    }
+}
