@@ -1,0 +1,116 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class King : Piece
+{
+    private Rook lRook = null;
+    private Rook rRook = null;
+    public override void Setup(Color nColor, PieceManager pm, Color32 sColor)
+    {
+        base.Setup(nColor, pm, sColor);
+
+        firstMove = true;
+        movement = new Vector3Int(1, 1, 1);
+        GetComponent<Image>().sprite = Resources.Load<Sprite>("king");
+        rank = PieceRank.KING;
+        
+        if(nColor == Color.white)
+        {
+            pm.wKing = this;
+        } else
+        {
+            pm.bKing = this;
+        }
+    }
+
+    public override void KillPiece()
+    {
+        base.KillPiece();
+
+        PM.isKingsAlive = false;
+    }
+
+    protected override void Move()
+    {
+        base.Move();
+
+        if (CanCastle(lRook))
+        {
+            lRook.Castle();
+        }
+
+        if (CanCastle(rRook))
+        {
+            rRook.Castle();
+        }
+
+        if (firstMove)
+        {
+            firstMove = false;
+        }
+    }
+
+    protected override void CheckPath()
+    {
+        base.CheckPath();
+
+        lRook = GetRook(-1, 4);
+        rRook = GetRook(1, 3);
+    }
+
+    private bool CanCastle(Rook rook)
+    {
+        if(rook == null)
+        {
+            return false;
+        }
+
+        if(currentTile != rook.castleTrigger)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private Rook GetRook(int direction, int count)
+    {
+        Vector2Int kingPos = currentTile.pos;
+
+        for(int i = 1; i < count; i++) //Check path between king and rook
+        {
+            int offsetX = kingPos.x + (i * direction);
+            TileState pathState = currentTile.board.ValidateTile(offsetX, kingPos.y, this);
+            
+            if(pathState != TileState.Empty)
+            {
+                return null;
+            }
+        }
+
+        Tile rookTile = currentTile.board.tileGrid[kingPos.x + (direction * count), kingPos.y];
+        Rook rook = null;
+
+        if (rookTile.currentPiece != null)
+        {
+            if (rookTile.currentPiece is Rook)
+            {
+                rook = (Rook)rookTile.currentPiece;
+            }
+        }
+
+        if(rook != null)
+        {
+            if (rook.pieceColor != pieceColor || !rook.firstMove) //Check if rook is allied and hasn't moved
+            {
+                return null;
+            }
+
+            highlighted.Add(rook.castleTrigger); //Add castle to movement
+        }
+
+        return rook;
+    }
+}
