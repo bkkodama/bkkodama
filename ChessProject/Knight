@@ -1,0 +1,47 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public class Knight : Piece
+{
+    public override void Setup(Color nColor, PieceManager pm, Color32 sColor)
+    {
+        base.Setup(nColor, pm, sColor);
+
+        movement = new Vector3Int(1, 1, 1);
+        GetComponent<Image>().sprite = Resources.Load<Sprite>("knight");
+        rank = PieceRank.KNIGHT;
+    }
+
+    private void CreatePath(int flip)
+    {
+        int currX = currentTile.pos.x;
+        int currY = currentTile.pos.y;
+
+        //Right
+        MatchesState(currX + 2, currY + (1 * flip));
+        //Left
+        MatchesState(currX - 2, currY + (1 * flip));
+        //Up
+        MatchesState(currX + (1 * flip), currY + 2);
+        //Down
+        MatchesState(currX + (1 * flip), currY - 2);
+    }
+
+    protected override void CheckPath()
+    {
+        CreatePath(1);
+        CreatePath(-1);
+    }
+
+    private void MatchesState(int targetX, int targetY)
+    {
+        TileState targetTile = currentTile.board.ValidateTile(targetX, targetY, this);
+
+        if (TileState.Enemy == targetTile || TileState.Empty == targetTile)
+        {
+            highlighted.Add(currentTile.board.tileGrid[targetX, targetY]);
+        }
+    }
+}
