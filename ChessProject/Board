@@ -1,0 +1,81 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+
+public enum TileState
+{
+    None,
+    Ally,
+    Enemy,
+    Empty,
+    OOB
+}
+
+public class Board : MonoBehaviour
+{
+    public GameObject tilePF;
+    public Tile[,] tileGrid = new Tile[8, 8];
+    public Color32 darkTile = new Color32(99, 99, 99, 255);
+
+
+    public void Create()
+    {
+        for(int y = 0; y < 8; y++)
+        {
+            for(int x = 0; x < 8; x++)
+            {
+                GameObject nTile = Instantiate(tilePF, transform);
+                RectTransform tPos = nTile.GetComponent<RectTransform>();
+                tPos.anchoredPosition = new Vector2((x * 100) + 50, (y * 100) + 50);
+
+                if((x + y) % 2 == 0)
+                {
+                    nTile.GetComponent<Image>().color = darkTile;
+                }
+
+                tileGrid[x, y] = nTile.GetComponent<Tile>();
+                tileGrid[x, y].Setup(new Vector2Int(x, y), this); 
+            }
+        }
+    }
+
+    public TileState ValidateTile(int xPos, int yPos, Piece curr)
+    {
+        if(xPos < 0 || xPos > 7)
+        {
+            return TileState.OOB;
+        }
+
+        if(yPos < 0 || yPos > 7)
+        {
+            return TileState.OOB;
+        }
+
+        Tile target = tileGrid[xPos, yPos];
+
+        if(target.currentPiece == null)
+        {
+            return TileState.Empty;
+        } 
+        else if (target.currentPiece.pieceColor == curr.pieceColor || target.currentPiece.pieceColor == Color.clear)
+        {
+            return TileState.Ally;
+        }
+        else
+        {
+            return TileState.Enemy;
+        }
+    }
+    // Start is called before the first frame update
+    void Start()
+    {
+        
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        
+    }
+}
